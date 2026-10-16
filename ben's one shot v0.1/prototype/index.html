@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>PRISM RIOT: Chaos Arena — Prototype</title>
+<style>
+  :root{
+    --hot:#ff3d6e; --gold:#ffd23d; --cyan:#38e6ff; --ink:#191333;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; height:100%; overflow:hidden; background:#0d0b22;
+    font-family:"Trebuchet MS","Hiragino Sans",Verdana,Arial,sans-serif; color:#fff; user-select:none; }
+  #app{ position:fixed; inset:0; }
+  canvas{ display:block; width:100%; height:100%; }
+
+  /* ---------- HUD ---------- */
+  #hud{ position:absolute; inset:0; pointer-events:none; }
+  #topbar{ position:absolute; top:14px; left:50%; transform:translateX(-50%);
+    display:flex; gap:22px; align-items:center; }
+  #timer{ font-size:44px; font-weight:900; letter-spacing:2px;
+    text-shadow:0 3px 0 #5b1140, 0 0 18px rgba(255,61,110,.7); }
+  #stageName{ font-size:15px; font-weight:700; opacity:.85; letter-spacing:3px; text-transform:uppercase; }
+  .panel{ position:absolute; top:16px; width:230px; padding:10px 12px;
+    background:rgba(18,12,44,.62); border:2px solid rgba(255,255,255,.22);
+    border-radius:14px; backdrop-filter:blur(4px); }
+  .panel .row1{ display:flex; justify-content:space-between; align-items:baseline; }
+  .pname{ font-size:14px; font-weight:900; letter-spacing:1px; text-transform:uppercase; }
+  .php{ font-size:12px; font-weight:700; opacity:.8; }
+  .hpbar{ height:12px; border-radius:8px; background:rgba(255,255,255,.18);
+    margin:5px 0 6px; overflow:hidden; }
+  .hpfill{ height:100%; border-radius:8px; transition:width .12s linear; }
+  .stones{ display:flex; gap:5px; align-items:center; }
+  .stone{ width:15px; height:15px; border-radius:50%; background:rgba(255,255,255,.16);
+    border:2px solid rgba(255,255,255,.35); transform:rotate(45deg); }
+  .stone.on{ box-shadow:0 0 10px 2px currentColor; }
+  .gauge{ flex:1; height:8px; margin-left:8px; border-radius:6px;
+    background:rgba(255,255,255,.16); overflow:hidden; }
+  .gaugefill{ height:100%; background:linear-gradient(90deg,var(--gold),var(--hot)); }
+  .gbadge{ font-size:10px; font-weight:900; letter-spacing:1px; margin-left:6px; color:var(--gold); }
+  .held{ font-size:11px; opacity:.85; margin-top:5px; height:14px; }
+
+  #banner{ position:absolute; top:22%; left:50%; transform:translate(-50%,-50%) scale(.8);
+    font-size:64px; font-weight:900; letter-spacing:6px; text-align:center;
+    color:var(--gold); text-shadow:0 6px 0 #a1272f,0 0 34px rgba(255,210,61,.8);
+    opacity:0; transition:opacity .18s, transform .18s; white-space:nowrap; }
+  #banner.show{ opacity:1; transform:translate(-50%,-50%) scale(1); }
+  #flash{ position:absolute; inset:0; background:#fff; opacity:0; pointer-events:none; }
+
+  /* ---------- overlays ---------- */
+  .screen{ position:absolute; inset:0; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; gap:18px;
+    background:radial-gradient(circle at 50% 30%, rgba(88,28,140,.92), rgba(10,8,30,.96)); }
+  .hidden{ display:none !important; }
+  h1.logo{ margin:0; font-size:74px; font-weight:900; letter-spacing:4px; line-height:.95;
+    background:linear-gradient(180deg,#fff 15%,var(--gold) 55%,var(--hot) 95%);
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+    filter:drop-shadow(0 6px 0 rgba(120,20,70,.85)); text-align:center; }
+  .sub{ font-size:18px; letter-spacing:6px; opacity:.85; text-transform:uppercase; }
+  .btn{ pointer-events:auto; cursor:pointer; border:none; border-radius:999px;
+    padding:15px 38px; font-size:19px; font-weight:900; letter-spacing:2px; color:#2b0b34;
+    background:linear-gradient(180deg,#ffe27a,var(--gold)); box-shadow:0 6px 0 #b2601b;
+    transition:transform .08s; text-transform:uppercase; }
+  .btn:hover{ transform:translateY(-2px); }
+  .btn:active{ transform:translateY(3px); box-shadow:0 2px 0 #b2601b; }
+  .btn.alt{ background:linear-gradient(180deg,#9be9ff,var(--cyan)); box-shadow:0 6px 0 #146b86; }
+  .help{ max-width:920px; font-size:14px; line-height:1.85; opacity:.92;
+    background:rgba(255,255,255,.08); padding:18px 26px; border-radius:18px; }
+  .help b{ color:var(--gold); }
+
+  #select{ gap:12px; }
+  .slots{ display:flex; gap:14px; flex-wrap:wrap; justify-content:center; max-width:1100px; }
+  .slot{ width:238px; background:rgba(255,255,255,.10); border:2px solid rgba(255,255,255,.22);
+    border-radius:16px; padding:12px; pointer-events:auto; }
+  .slot h3{ margin:2px 0 8px; font-size:13px; letter-spacing:2px; opacity:.8; }
+  .slot .char{ font-size:17px; font-weight:900; letter-spacing:1px; min-height:22px; }
+  .slot .tag{ font-size:11px; opacity:.75; min-height:30px; margin:2px 0 8px; }
+  .slot .ctl{ font-size:11px; letter-spacing:1px; opacity:.9; margin-top:6px; }
+  .mini{ cursor:pointer; border:none; border-radius:8px; padding:6px 11px; margin:2px;
+    font-weight:900; font-size:12px; color:#20102e; background:rgba(255,255,255,.8); }
+  .mini:hover{ background:#fff; }
+  .stageline{ pointer-events:auto; display:flex; gap:10px; align-items:center; }
+  #results table{ border-collapse:collapse; font-size:16px; min-width:560px; }
+  #results th,#results td{ padding:10px 18px; border-bottom:1px solid rgba(255,255,255,.22); text-align:left; }
+  #results th{ opacity:.7; letter-spacing:2px; font-size:12px; text-transform:uppercase; }
+  .win{ color:var(--gold); }
+  .foot{ position:absolute; bottom:16px; font-size:12px; letter-spacing:2px; opacity:.6; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="hud" class="hidden">
+    <div id="topbar"><div id="stageName">SKY GALLEON</div><div id="timer">3:00</div></div>
+    <div id="banner"></div>
+    <div id="flash"></div>
+  </div>
+
+  <div id="title" class="screen">
+    <div class="sub">4-PLAYER 3D ARENA BRAWLER · PROTOTYPE</div>
+    <h1 class="logo">PRISM RIOT<br/>CHAOS ARENA</h1>
+    <button class="btn" id="startBtn">Click to Start</button>
+    <div class="help">
+      <b>P1</b> move <b>WASD</b> · attack <b>J</b> · jump <b>K</b> · action <b>L</b> · discard <b>I</b><br/>
+      <b>P2</b> move <b>ARROWS</b> · attack <b>,</b> · jump <b>.</b> · action <b>/</b> · discard <b>;</b>
+      (numpad 1/2/3/0 also works) · gamepads auto-join on any button press<br/>
+      <b>TAP a direction</b> = dodge step (invulnerable) · <b>Attack ×3</b> = combo → KNOCKDOWN ·
+      <b>Jump at walls</b> = wall jump · <b>Action</b> = pick up / throw / grab / board turrets / use item<br/>
+      <b>Collect 3 POWER STONES</b> to TRANSFORM · in stone form: <b>Attack</b> / <b>Action</b> = Power Drive ·
+      <b>Attack+Jump</b> / <b>Action+Jump</b> = POWER FUSION
+    </div>
+    <div class="foot">UNOFFICIAL ORIGINAL HOMAGE — ALL NAMES &amp; ASSETS ORIGINAL · DESIGN DOCS IN /design</div>
+  </div>
+
+  <div id="select" class="screen hidden">
+    <h1 class="logo" style="font-size:48px">SELECT YOUR FIGHTERS</h1>
+    <div class="slots" id="slots"></div>
+    <div class="stageline">
+      <button class="mini" id="stagePrev">◀</button>
+      <div style="font-size:20px;font-weight:900;letter-spacing:3px;min-width:280px;text-align:center" id="stageLabel">SKY GALLEON</div>
+      <button class="mini" id="stageNext">▶</button>
+    </div>
+    <div style="display:flex;gap:16px">
+      <button class="btn alt" id="backBtn">Back</button>
+      <button class="btn" id="fightBtn">Start Brawl!</button>
+    </div>
+    <div class="foot">Slots: CPU / Keyboard 1 / Keyboard 2 / Gamepad · arrows cycle characters</div>
+  </div>
+
+  <div id="results" class="screen hidden">
+    <h1 class="logo" style="font-size:56px" id="resultsTitle">K.O.!</h1>
+    <div id="resultsBody"></div>
+    <button class="btn" id="rematchBtn">Rematch</button>
+    <button class="btn alt" id="selectBtn">Character Select</button>
+  </div>
+</div>
+
+<script type="importmap">
+{ "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" } }
+</script>
+<script type="module" src="./game.js"></script>
+</body>
+</html>
